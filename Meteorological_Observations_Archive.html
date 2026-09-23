@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Метеонаблюдения слоёв атмосферы</title>
+<style>
+:root { --bg:#eef3f8; --card:#fff; --ink:#172638; --muted:#607286; --line:#dbe4ed; --accent:#2878b9; }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; }
+header { background:linear-gradient(120deg,#153b60,#2878b9); color:white; padding:32px 20px; }
+header .wrap, main { max-width:1200px; margin:auto; }
+h1 { margin:0 0 8px; font-size:clamp(25px,4vw,38px); }
+header p { margin:0; opacity:.9; }
+main { padding:24px 16px 48px; }
+h2 { margin:32px 0 14px; font-size:24px; }
+h3 { margin:0 0 12px; font-size:18px; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px; margin:14px 0; box-shadow:0 5px 18px #1a355008; }
+.table-wrap { overflow-x:auto; }
+table { width:100%; border-collapse:collapse; min-width:650px; font-variant-numeric:tabular-nums; }
+th,td { text-align:center; padding:10px 12px; border-bottom:1px solid var(--line); }
+th { background:#f4f8fb; color:#344e66; font-weight:650; }
+td:first-child, th:first-child { text-align:left; white-space:nowrap; }
+tr:last-child td { border-bottom:0; }
+.chart { width:100%; height:330px; display:block; }
+.legend { display:flex; flex-wrap:wrap; gap:12px 20px; margin:8px 0 0; color:var(--muted); font-size:14px; }
+.key { display:inline-flex; align-items:center; gap:7px; }
+.swatch { width:20px; height:4px; border-radius:3px; display:inline-block; }
+.note { color:var(--muted); font-size:14px; }
+.cloud-chart { height:390px; }
+.wind-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(270px,1fr)); gap:14px; }
+.wind-item { border:1px solid var(--line); border-radius:12px; padding:14px; }
+.wind-item h4 { margin:0 0 10px; }
+.wind-item svg { width:100%; height:76px; display:block; }
+.arrow-label { font-size:13px; color:var(--muted); text-align:center; margin-top:5px; }
+@media(max-width:600px) { .card { padding:12px; } .chart { height:280px; } .cloud-chart {height:330px;} }
+
+.navbar{position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid var(--line);padding:10px 14px;display:flex;gap:8px;overflow-x:auto;box-shadow:0 3px 12px #1a35500b}
+.navbar button{border:1px solid #d4e0eb;background:#f4f8fb;color:#29445c;border-radius:999px;padding:9px 15px;font:600 14px system-ui;white-space:nowrap;cursor:pointer}
+.navbar button.active{background:#2878b9;color:white;border-color:#2878b9}
+main{padding-top:14px}.section-intro{color:var(--muted);margin:0 0 14px}.card{scroll-margin-top:70px}
+.data-subhead{margin:22px 0 8px;font-size:17px;color:#29445c}
+@media(max-width:600px){.navbar{padding:8px}.navbar button{padding:8px 12px}}
+
+td[contenteditable="true"] { cursor:text; outline:none; }
+td[contenteditable="true"]:focus { background:#fff8d9; box-shadow:inset 0 0 0 2px #e4b94f; }
+.edit-tools { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
+button { border:0; border-radius:9px; padding:9px 14px; background:#2878b9; color:#fff; font:inherit; cursor:pointer; }
+button.secondary { background:#607286; }
+.edit-hint { font-size:13px; color:#607286; margin:8px 0; }
+</style>
+</head>
+<body>
+<header><div class="wrap">
+<h1>Метеонаблюдения слоёв атмосферы</h1>
+<p>Таблицы и графики температуры, влажности, ветра и облачности на трёх высотах</p>
+</div></header>
+<nav class="navbar" aria-label="Навигация по разделам">
+<button class="active" data-target="all">Всё</button><button data-target="overview">Обзор</button><button data-target="data">Таблицы</button><button data-target="temperature">Температура</button><button data-target="humidity">Влажность</button><button data-target="wind">Ветер</button><button data-target="clouds">Облачность</button>
+</nav>
+<main>
+<div class="card"><h3>Редактирование данных</h3>
+<p class="edit-hint">Нажми на любую ячейку таблицы и измени значение. Кнопка «Добавить строку» добавляет новую строку в выбранную таблицу. Изменения сохраняются в этом браузере автоматически.</p>
+<div class="edit-tools">
+<button onclick="addRow(0)">Добавить строку в таблицу метеоданных</button>
+<button onclick="addRow(1)">Добавить строку в таблицу облачности</button>
+<button class="secondary" onclick="saveEdits()">Сохранить сейчас</button>
+<button class="secondary" onclick="resetEdits()">Сбросить изменения</button>
+</div></div>
+<h2 data-section="data">1. Исходные данные</h2>
+<div class="card"><h3>Температура, влажность и ветер</h3><div class="table-wrap">
+<table><thead><tr><th>Дата</th><th>Высота</th><th>Температура</th><th>Влажность</th><th>Направление</th><th>Скорость</th></tr></thead><tbody>
+<tr><td>16.09</td><td>2000 м</td><td>+3 °C</td><td>88%</td><td>С ↑</td><td>5 м/с</td></tr>
+<tr><td>16.09</td><td>5500 м</td><td>−16 °C</td><td>32%</td><td>С ↑</td><td>9 м/с</td></tr>
+<tr><td>16.09</td><td>10000 м</td><td>−47 °C</td><td>11%</td><td>С ↑</td><td>13 м/с</td></tr>
+<tr><td>17.09</td><td>2000 м</td><td>+5 °C</td><td>67%</td><td>СЗ ↗</td><td>2 м/с</td></tr>
+<tr><td>17.09</td><td>5500 м</td><td>−12 °C</td><td>4%</td><td>СВ ↖</td><td>7 м/с</td></tr>
+<tr><td>17.09</td><td>10000 м</td><td>−48 °C</td><td>40%</td><td>С ↑</td><td>13 м/с</td></tr>
+<tr><td>18.09</td><td>2000 м</td><td>+7 °C</td><td>33%</td><td>СВ ↖</td><td>2 м/с</td></tr>
+<tr><td>18.09</td><td>5500 м</td><td>−13 °C</td><td>56%</td><td>З →</td><td>5 м/с</td></tr>
+<tr><td>18.09</td><td>10000 м</td><td>−50 °C</td><td>70%</td><td>СЗ ↗</td><td>5 м/с</td></tr>
+<tr><td>19.09</td><td>2000 м</td><td>+9 °C</td><td>52%</td><td>СЗ ↗</td><td>5 м/с</td></tr>
+<tr><td>19.09</td><td>5500 м</td><td>−13 °C</td><td>41%</td><td>З →</td><td>6 м/с</td></tr>
+<tr><td>19.09</td><td>10000 м</td><td>−50 °C</td><td>55%</td><td>З →</td><td>12 м/с</td></tr>
+<tr><td>20.09</td><td>2000 м</td><td>+7 °C</td><td>58%</td><td>З →</td><td>7 м/с</td></tr>
+<tr><td>20.09</td><td>5500 м</td><td>−15 °C</td><td>14%</td><td>З →</td><td>6 м/с</td></tr>
+<tr><td>20.09</td><td>10000 м</td><td>−50 °C</td><td>35%</td><td>СЗ ↗</td><td>13 м/с</td></tr>
+<tr><td>21.09</td><td>2000 м</td><td>+8 °C</td><td>67%</td><td>З →</td><td>9 м/с</td></tr>
+<tr><td>21.09</td><td>5500 м</td><td>−15 °C</td><td>78%</td><td>ЮЗ ↘</td><td>13 м/с</td></tr>
+<tr><td>21.09</td><td>10000 м</td><td>−51 °C</td><td>91%</td><td>ЮЗ ↘</td><td>20 м/с</td></tr>
+<tr><td>22.09</td><td>2000 м</td><td>0 °C</td><td>83%</td><td>З →</td><td>4 м/с</td></tr>
+<tr><td>22.09</td><td>5500 м</td><td>−20 °C</td><td>18%</td><td>ЮЗ ↘</td><td>21 м/с</td></tr>
+<tr><td>22.09</td><td>10000 м</td><td>−56 °C</td><td>100%</td><td>ЮЗ ↘</td><td>50 м/с</td></tr>
+</tbody></table></div></div>
+
+<div class="card"><h3>Высота облаков и облачные слои</h3><div class="table-wrap">
+<table><thead><tr><th>Дата</th><th>Высота облаков / слои</th></tr></thead><tbody>
+<tr><td>16.09</td><td>2000 м</td></tr><tr><td>17.09</td><td>2000 м</td></tr>
+<tr><td>18.09</td><td>1600 м</td></tr><tr><td>19.09</td><td>Облаков нет</td></tr>
+<tr><td>20.09</td><td>Облаков нет</td></tr><tr><td>21.09</td><td>2500 м; слой 7000–10500 м</td></tr>
+<tr><td>22.09</td><td>1400 м; слой 9100–10300 м</td></tr>
+</tbody></table></div><p class="note">Отсутствие облаков 19–20 сентября показано разрывом линии на графике. Высотные слои отображены как интервалы.</p></div>
+
+<h2 data-section="temperature">2. Графики температуры</h2>
+<div class="card"><h3>Температура по высотам</h3><canvas id="temp" class="chart"></canvas><div class="legend" id="tempLegend"></div></div>
+<h2 data-section="humidity">3. Графики влажности</h2>
+<div class="card"><h3>Относительная влажность по высотам</h3><canvas id="humid" class="chart"></canvas><div class="legend" id="humidLegend"></div></div>
+<h2 data-section="wind">4. Графики скорости ветра</h2>
+<div class="card"><h3>Скорость ветра по высотам</h3><canvas id="speed" class="chart"></canvas><div class="legend" id="speedLegend"></div></div>
+
+<h2 data-section="wind">5. Направление ветра</h2>
+<div class="card"><p class="note">Стрелки ориентированы строго по указанной тобой схеме: север — вверх, запад — вправо, юг — вниз, восток — влево.</p>
+<div class="wind-grid" id="windGrid"></div></div>
+
+<h2 data-section="clouds">6. Высота облаков и слои</h2>
+<div class="card"><h3>Высота нижней границы облаков</h3><canvas id="cloudBase" class="chart cloud-chart"></canvas>
+<p class="note">На 19 и 20 сентября наблюдений облачности нет, поэтому соединительная линия прерывается. На 21 и 22 сентября показаны также отдельные верхние слои.</p></div>
+<div class="card"><h3>Диапазоны облачных слоёв</h3><canvas id="cloudLayers" class="chart cloud-chart"></canvas></div>
+<p class="note">Даты на графиках идут слева направо с 16 по 22 сентября. Графики построены непосредственно по предоставленным значениям.</p>
+</main>
+<script>
+const dates=['16.09','17.09','18.09','19.09','20.09','21.09','22.09'];
+const heights=['2000 м','5500 м','10000 м'];
+const data={
+ temp:[[3,5,7,9,7,8,0],[-16,-12,-13,-13,-15,-15,-20],[-47,-48,-50,-50,-50,-51,-56]],
+ humid:[[88,67,33,52,58,67,83],[32,4,56,41,14,78,18],[11,40,70,55,35,91,100]],
+ speed:[[5,2,2,5,7,9,4],[9,7,5,6,6,13,21],[13,13,5,12,13,20,50]],
+ dirs:[['С','СЗ','СВ','СЗ','З','З','З'],['С','СВ','З','З','З','ЮЗ','ЮЗ'],['С','С','СЗ','З','СЗ','ЮЗ','ЮЗ']]
+};
+const colors=['#2878b9','#e07b39','#26966f'];
+function legend(id){document.getElementById(id).innerHTML=heights.map((h,i)=>`<span class="key"><i class="swatch" style="background:${colors[i]}"></i>${h}</span>`).join('');}
+function drawLineChart(id, series, min, max, step, unit, zeroLine=false){
+ const c=document.getElementById(id), ctx=c.getContext('2d'), dpr=window.devicePixelRatio||1;
+ const W=c.clientWidth,H=c.clientHeight;c.width=W*dpr;c.height=H*dpr;ctx.scale(dpr,dpr);
+ const L=54,R=18,T=18,B=42,pw=W-L-R,ph=H-T-B;
+ ctx.clearRect(0,0,W,H);ctx.font='12px system-ui';ctx.lineWidth=1;
+ const y=v=>T+(max-v)/(max-min)*ph, x=i=>L+i*pw/(dates.length-1);
+ for(let v=min;v<=max+1e-8;v+=step){let yy=y(v);ctx.strokeStyle='#e4ebf2';ctx.beginPath();ctx.moveTo(L,yy);ctx.lineTo(W-R,yy);ctx.stroke();ctx.fillStyle='#617487';ctx.textAlign='right';ctx.textBaseline='middle';ctx.fillText(v+unit,L-9,yy);}
+ dates.forEach((d,i)=>{ctx.strokeStyle='#f0f3f6';ctx.beginPath();ctx.moveTo(x(i),T);ctx.lineTo(x(i),H-B);ctx.stroke();ctx.fillStyle='#52677b';ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText(d,x(i),H-B+12);});
+ if(zeroLine&&min<0&&max>0){ctx.strokeStyle='#8295a8';ctx.setLineDash([5,4]);ctx.beginPath();ctx.moveTo(L,y(0));ctx.lineTo(W-R,y(0));ctx.stroke();ctx.setLineDash([]);}
+ series.forEach((vals,s)=>{ctx.strokeStyle=colors[s];ctx.lineWidth=2.8;ctx.beginPath();vals.forEach((v,i)=>{i===0?ctx.moveTo(x(i),y(v)):ctx.lineTo(x(i),y(v));});ctx.stroke();
+ vals.forEach((v,i)=>{ctx.fillStyle=colors[s];ctx.beginPath();ctx.arc(x(i),y(v),4,0,Math.PI*2);ctx.fill();ctx.fillStyle='#24384b';ctx.font='11px system-ui';ctx.textAlign='center';ctx.textBaseline=v>max-((max-min)*.09)?'bottom':'bottom';ctx.fillText(v,x(i),y(v)-7);});
+ });
+}
+function render(){drawLineChart('temp',data.temp,-60,20,10,'°',true);drawLineChart('humid',data.humid,0,100,20,'%');drawLineChart('speed',data.speed,0,50,10,'');['tempLegend','humidLegend','speedLegend'].forEach(legend);drawCloudBase();drawCloudLayers();}
+function drawCloudBase(){
+ const c=document.getElementById('cloudBase'),ctx=c.getContext('2d'),dpr=devicePixelRatio||1,W=c.clientWidth,H=c.clientHeight;c.width=W*dpr;c.height=H*dpr;ctx.scale(dpr,dpr);
+ const L=55,R=18,T=20,B=44,pw=W-L-R,ph=H-T-B,min=0,max=11000;
+ const x=i=>L+i*pw/6,y=v=>T+(max-v)/(max-min)*ph;
+ ctx.font='12px system-ui';
+ for(let v=0;v<=10000;v+=2000){let yy=y(v);ctx.strokeStyle='#e3ebf2';ctx.beginPath();ctx.moveTo(L,yy);ctx.lineTo(W-R,yy);ctx.stroke();ctx.fillStyle='#607286';ctx.textAlign='right';ctx.fillText(v.toLocaleString('ru-RU')+' м',L-8,yy+4);}
+ dates.forEach((d,i)=>{ctx.fillStyle='#52677b';ctx.textAlign='center';ctx.fillText(d,x(i),H-B+18);});
+ const vals=[2000,2000,1600,null,null,2500,1400];ctx.strokeStyle='#2878b9';ctx.lineWidth=3;ctx.beginPath();let started=false;
+ vals.forEach((v,i)=>{if(v==null){started=false;return;}if(!started){ctx.moveTo(x(i),y(v));started=true;}else ctx.lineTo(x(i),y(v));ctx.fillStyle='#2878b9';ctx.beginPath();ctx.arc(x(i),y(v),5,0,Math.PI*2);ctx.fill();ctx.fillStyle='#24384b';ctx.textAlign='center';ctx.fillText(v+' м',x(i),y(v)-12);});
+ ctx.stroke();
+}
+function drawCloudLayers(){
+ const c=document.getElementById('cloudLayers'),ctx=c.getContext('2d'),dpr=devicePixelRatio||1,W=c.clientWidth,H=c.clientHeight;c.width=W*dpr;c.height=H*dpr;ctx.scale(dpr,dpr);
+ const L=55,R=18,T=24,B=44,pw=W-L-R,ph=H-T-B,min=0,max=11000,x=i=>L+i*pw/6,y=v=>T+(max-v)/(max-min)*ph;
+ ctx.font='12px system-ui';
+ for(let v=0;v<=10000;v+=2000){let yy=y(v);ctx.strokeStyle='#e3ebf2';ctx.beginPath();ctx.moveTo(L,yy);ctx.lineTo(W-R,yy);ctx.stroke();ctx.fillStyle='#607286';ctx.textAlign='right';ctx.fillText(v+' м',L-8,yy+4);}
+ dates.forEach((d,i)=>{ctx.fillStyle='#52677b';ctx.textAlign='center';ctx.fillText(d,x(i),H-B+18);});
+ // Lower cloud-base marks are separate from upper layer ranges.
+ const lower=[2000,2000,1600,null,null,2500,1400];
+ lower.forEach((v,i)=>{if(v!=null){ctx.fillStyle='#2878b9';ctx.fillRect(x(i)-8,y(v)-5,16,10);}});
+ const ranges=[null,null,null,null,null,[7000,10500],[9100,10300]];
+ ranges.forEach((r,i)=>{if(!r)return;let yy=y(r[1]),hh=y(r[0])-y(r[1]);ctx.fillStyle='#e07b39';ctx.globalAlpha=.78;ctx.fillRect(x(i)-13,yy,26,hh);ctx.globalAlpha=1;ctx.fillStyle='#7b451e';ctx.textAlign='center';ctx.fillText(r[0]+'–'+r[1]+' м',x(i),yy-8);});
+ ctx.fillStyle='#2878b9';ctx.fillRect(L,T-14,12,8);ctx.fillStyle='#52677b';ctx.textAlign='left';ctx.fillText('Нижняя граница',L+18,T-7);
+ ctx.fillStyle='#e07b39';ctx.fillRect(L+150,T-14,12,8);ctx.fillStyle='#52677b';ctx.fillText('Высотный слой',L+168,T-7);
+}
+const arrow={С:[0,-24],З:[24,0],Ю:[0,24],В:[-24,0],СЗ:[24,-24],СВ:[-24,-24],ЮЗ:[24,24],ЮВ:[-24,24]};
+function windCards(){
+ const grid=document.getElementById('windGrid');
+ data.dirs.forEach((row,h)=>{const item=document.createElement('div');item.className='wind-item';item.innerHTML=`<h4>${heights[h]}</h4>`;
+ row.forEach((dir,i)=>{const [dx,dy]=arrow[dir];item.innerHTML+=`<svg viewBox="0 0 260 72" role="img" aria-label="${dates[i]}: ветер ${dir}"><text x="8" y="17" fill="#607286" font-size="12">${dates[i]}</text><line x1="130" y1="36" x2="${130+dx}" y2="${36+dy}" stroke="#2878b9" stroke-width="3" stroke-linecap="round"/><polygon points="${130+dx},${36+dy} ${130+dx-dx*.38-dy*.22},${36+dy-dy*.38+dx*.22} ${130+dx-dx*.38+dy*.22},${36+dy-dy*.38-dx*.22}" fill="#2878b9"/><circle cx="130" cy="36" r="3" fill="#172638"/><text x="250" y="42" text-anchor="end" fill="#172638" font-size="13" font-weight="600">${dir} · ${data.speed[h][i]} м/с</text></svg>`;});
+ grid.appendChild(item);});
+}
+window.addEventListener('resize',render);render();windCards();
+
+// Navigation: keep each subject focused and provide an all-sections view.
+const navButtons=[...document.querySelectorAll('.navbar button')];
+function applySection(target){
+ navButtons.forEach(b=>b.classList.toggle('active',b.dataset.target===target));
+ const headings=[...document.querySelectorAll('main h2')];
+ headings.forEach(h=>{
+   const key=h.dataset.section;
+   let show=target==='all'||(target==='overview'&&key==='data')||key===target;
+   h.hidden=!show;
+   let el=h.nextElementSibling;
+   while(el&&!el.matches('h2')){el.hidden=!show;el=el.nextElementSibling;}
+ });
+ if(target==='overview'){
+   // Overview focuses on the two data tables for a compact at-a-glance view.
+   const first=document.querySelector('main h2[data-section="data"]');
+   let el=first?.nextElementSibling; while(el&&!el.matches('h2')){el.hidden=false;el=el.nextElementSibling;}
+ }
+ window.scrollTo({top:0,behavior:'smooth'});
+}
+navButtons.forEach(b=>b.addEventListener('click',()=>applySection(b.dataset.target)));
+// Split the combined meteorological table into smaller, easier-to-scan tables.
+const mainTable=document.querySelector('main .card table');
+if(mainTable){
+ const rows=[...mainTable.querySelectorAll('tr')];
+ const configs=[
+  {title:'Температура',cols:[0,1,2]},
+  {title:'Относительная влажность',cols:[0,1,3]},
+  {title:'Ветер',cols:[0,1,4,5]}
+ ];
+ const holder=mainTable.closest('.card');
+ configs.forEach(cfg=>{
+  const heading=document.createElement('h4');heading.className='data-subhead';heading.textContent=cfg.title;holder.appendChild(heading);
+  const wrap=document.createElement('div');wrap.className='table-wrap';const table=document.createElement('table');
+  rows.forEach((row,ri)=>{const tr=document.createElement('tr');cfg.cols.forEach(ci=>{const cell=row.children[ci];if(cell){const copy=document.createElement(ri===0?'th':'td');copy.textContent=cell.textContent;tr.appendChild(copy);}});if(ri===0){const thead=document.createElement('thead');thead.appendChild(tr);table.appendChild(thead);}else{let tbody=table.querySelector('tbody');if(!tbody){tbody=document.createElement('tbody');table.appendChild(tbody);}tbody.appendChild(tr);}});
+  wrap.appendChild(table);holder.appendChild(wrap);
+ });
+ mainTable.closest('.table-wrap').remove();
+}
+
+
+// Редактируемые таблицы с локальным сохранением
+const tables=[...document.querySelectorAll('.table-wrap table')];
+function enableEditing(){
+ tables.forEach((table,ti)=>{
+   table.querySelectorAll('tbody td').forEach(td=>{td.contentEditable='true';td.spellcheck=false;});
+   table.querySelector('tbody').addEventListener('input',saveEdits);
+ });
+}
+function saveEdits(){
+ const snapshot=tables.map(t=>[...t.querySelectorAll('tbody tr')].map(r=>[...r.cells].map(c=>c.innerText)));
+ try{localStorage.setItem('atmosphereStatsEdits',JSON.stringify(snapshot));}catch(e){}
+}
+function restoreEdits(){
+ try{
+  const saved=JSON.parse(localStorage.getItem('atmosphereStatsEdits')||'null');
+  if(saved) saved.forEach((rows,ti)=>{if(!tables[ti])return;const body=tables[ti].querySelector('tbody');body.innerHTML='';
+   rows.forEach(row=>{const tr=document.createElement('tr');row.forEach(value=>{const td=document.createElement('td');td.contentEditable='true';td.spellcheck=false;td.innerText=value;tr.appendChild(td);});body.appendChild(tr);});
+  });
+ }catch(e){}
+}
+function addRow(index){
+ const body=tables[index].querySelector('tbody'), count=tables[index].querySelectorAll('thead th').length;
+ const tr=document.createElement('tr');
+ for(let i=0;i<count;i++){const td=document.createElement('td');td.contentEditable='true';td.spellcheck=false;td.innerText=i===0?'Новая дата':'';tr.appendChild(td);}
+ body.appendChild(tr);saveEdits();tr.cells[0].focus();
+}
+function resetEdits(){
+ if(confirm('Удалить сохранённые изменения и восстановить исходную таблицу?')){
+  localStorage.removeItem('atmosphereStatsEdits');location.reload();
+ }
+}
+restoreEdits();enableEditing();
+</script>
+</body></html>
